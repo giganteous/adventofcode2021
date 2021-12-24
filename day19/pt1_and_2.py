@@ -31,7 +31,11 @@ def load_scanners(filename):
 class Beacon:
     def __init__(self, pos, i=''):
         self.pos = pos
+        self.orig_pos = pos
         self.i = i
+
+    def reset(self):
+        self.pos = self.orig_pos
 
     def __str__(self):
         if type(self.i) == type(0):
@@ -49,10 +53,6 @@ class Beacon:
 
     def __add__(self, other):
         return tuple(c1 + c2 for c1, c2 in zip(self.pos, other.pos))
-
-    def move(self, other):
-        """ Our scanner adjusted its .location"""
-        self.pos = tuple(c1 + c2 for c1, c2 in zip(self.pos, other.pos))
 
     def apply(self, f):
         """ Adjust myself to a new base grid """
@@ -81,14 +81,18 @@ class Scanner():
     def add_beacons(self, coords):
         self.beacons = coords
 
-    def set_location(self, offset):
-        self.location = offset
-        for b in self.beacons:
-            b.move(offset)
+    def set_location(self, function):
+        """ Moving the scanner in space """
+        if not self.location:
+            self.location = function((0, 0, 0))
+        [ b.apply(function) for b in self.beacons ]
 
     def set_rotation(self, function):
-        for b in self.beacons:
-            b.apply(function)
+        [ b.apply(function) for b in self.beacons ]
+
+    def reset(self):
+        self.location = None
+        [ b.reset() for b in self.beacons ]
 
     def search_fingerprints(self, other):
         selflist = []
@@ -129,6 +133,7 @@ def make_transformations():
                 apply_both(change_h, change_ab) #lambda x: change_h(*change_ab(*x)) 
                 for change_h, change_ab in product(heading(), attitude_and_bank())
         ]
+
 funcs = make_transformations()
 
 def search_rotation(left, right, try_funcs):
@@ -144,7 +149,68 @@ def search_rotation(left, right, try_funcs):
         if all([compare == left[i] - right[i].view(try_funcs[f])
             for i in range(1, len(left))]):
             #print("Rotation", f)
-            return try_funcs[f], Beacon(compare, 'Δ')
+            return try_funcs[f], lambda x: (x[0]+compare[0],x[1]+compare[1],x[2]+compare[2])
     return None, None
 
 
+# utility functions
+def sortbyright(left, right):
+    return zip(*sorted(zip(left, right), key=lambda x: x[1].i))
+
+def printlistof(left, right=None, f=None, adjust=None):
+    """Print set of coordinates compared to each other"""
+    print("%-21s %-21s %s"%('left', 'right', 'Δ'))
+    if right:
+        for l, r in zip(left, right):
+            if f:
+                r = r.view(f)
+            print("%-21s %-21s %s" % (l, r, l-r))
+    else:
+        for b in left:
+            print(" {}".format(b))
+
+from sys import argv
+if len(argv) != 2:
+    print(f"Usage: {argv[0]} <filename>")
+    exit(1)
+scanners = load_scanners(argv[1])
+explore = set([0])
+unfinished = True
+
+while len(explore):
+    i = explore.pop()
+    for j in range(len(scanners)):
+        if i == j or scanners[j].location:
+            continue
+
+        # see if we have an overlap
+        left, right = scanners[i].search_fingerprints(scanners[j])
+
+        if not len(left):
+            continue
+
+        # search for a rotation in j
+        F, transform = search_rotation(left, right, funcs)
+
+        if not F:
+            print(f"Weird: no rot ({i}&{j}) but overlap!")
+            continue
+
+        explore.add(j)
+        scanners[j].set_rotation(F)
+        scanners[j].set_location(transform)
+        print(f"Scanner {j} sits at {scanners[j].location} (from {i})")
+
+allbeacons = set()
+for x in scanners:
+    if not x.location:
+        print("still no location for ", x.name)
+    for b in x.beacons:
+        allbeacons.add(b.pos)
+print(len(allbeacons))
+
+def taxi_distance(a, b):
+    return sum([abs(c1 - c2) for c1, c2 in zip(a, b)])
+from itertools import combinations
+m = max([taxi_distance(p1.location, p2.location) for p1, p2 in combinations(scanners, 2)])
+print(f"Max distance between 2 scanners: {m}")
