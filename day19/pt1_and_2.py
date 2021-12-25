@@ -31,28 +31,18 @@ def load_scanners(filename):
 class Beacon:
     def __init__(self, pos, i=''):
         self.pos = pos
-        self.orig_pos = pos
         self.i = i
-
-    def reset(self):
-        self.pos = self.orig_pos
 
     def __str__(self):
         if type(self.i) == type(0):
             return "<{:2}> {:4},{:4},{:4}".format(self.i, self.pos[0], self.pos[1], self.pos[2])
         return "{}{:4},{:4},{:4}".format(self.i, self.pos[0], self.pos[1], self.pos[2])
 
-    def __repr__(self):
-        return "<{:4},{:4},{:4} i={}>".format(self.pos[0], self.pos[1], self.pos[2], self.i)
-
     def __sub__(self, other):
         return tuple(c1 - c2 for c1, c2 in zip(self.pos, other.pos))
 
     def __eq__(self, other):
         return self.pos == other.pos
-
-    def __add__(self, other):
-        return tuple(c1 + c2 for c1, c2 in zip(self.pos, other.pos))
 
     def apply(self, f):
         """ Adjust myself to a new base grid """
@@ -90,10 +80,6 @@ class Scanner():
     def set_rotation(self, function):
         [ b.apply(function) for b in self.beacons ]
 
-    def reset(self):
-        self.location = None
-        [ b.reset() for b in self.beacons ]
-
     def search_fingerprints(self, other):
         selflist = []
         otherlist = []
@@ -112,19 +98,19 @@ def make_transformations():
                    either the bank (left roll, right roll)
             or make a complete flip (180°).
             heading will fix the nose of the scanner"""
-        yield lambda x, y, z: (+x,+y,+z) # do nothing
-        yield lambda x, y, z: (+x,+z,-y) # nose dive forward
-        yield lambda x, y, z: (+x,-z,+y) # node dive backward
-        yield lambda x, y, z: (+z,+y,-x) # bank left
-        yield lambda x, y, z: (-z,+y,+x) # bank right
-        yield lambda x, y, z: (-x,+y,-z) # bank 180°
+        yield lambda x, y, z: ( x, y, z) # do nothing
+        yield lambda x, y, z: ( x, z,-y) # nose dive forward
+        yield lambda x, y, z: ( x,-z, y) # node dive backward
+        yield lambda x, y, z: ( z, y,-x) # bank left
+        yield lambda x, y, z: (-z, y, x) # bank right
+        yield lambda x, y, z: (-x, y,-z) # bank 180°
 
     def heading():
         """ change the heading of the scanner """
-        yield lambda x, y, z: (+x,+y,+z) # do nothing
-        yield lambda x, y, z: (-y,+x,+z) # scanner turns right
-        yield lambda x, y, z: (+y,-x,+z) # scanner turns left
-        yield lambda x, y, z: (-x,-y,+z) # scanner turns around
+        yield lambda x, y, z: ( x, y, z) # do nothing
+        yield lambda x, y, z: (-y, x, z) # scanner turns right
+        yield lambda x, y, z: ( y,-x, z) # scanner turns left
+        yield lambda x, y, z: (-x,-y, z) # scanner turns around
 
     def apply_both(h, ab):
         return lambda pos: h(*ab(*pos))
