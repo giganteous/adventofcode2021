@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-
+# -*- encoding: utf8 -*-
 from sys import argv
 import re
 from collections import namedtuple
@@ -155,48 +155,49 @@ def printlistof(left, right=None, f=None, adjust=None):
         for b in left:
             print(" {}".format(b))
 
-from sys import argv
-if len(argv) != 2:
-    print(f"Usage: {argv[0]} <filename>")
-    exit(1)
-scanners = load_scanners(argv[1])
-explore = set([0])
-unfinished = True
+if __name__ == "__main__":
+    from sys import argv
+    if len(argv) != 2:
+        print(f"Usage: {argv[0]} <filename>")
+        exit(1)
+    scanners = load_scanners(argv[1])
+    explore = set([0])
+    unfinished = True
 
-while len(explore):
-    i = explore.pop()
-    for j in range(len(scanners)):
-        if i == j or scanners[j].location:
-            continue
+    while len(explore):
+        i = explore.pop()
+        for j in range(len(scanners)):
+            if i == j or scanners[j].location:
+                continue
 
-        # see if we have an overlap
-        left, right = scanners[i].search_fingerprints(scanners[j])
+            # see if we have an overlap
+            left, right = scanners[i].search_fingerprints(scanners[j])
 
-        if not len(left):
-            continue
+            if not len(left):
+                continue
 
-        # search for a rotation in j
-        F, transform = search_rotation(left, right, funcs)
+            # search for a rotation in j
+            F, transform = search_rotation(left, right, funcs)
 
-        if not F:
-            print(f"Weird: no rot ({i}&{j}) but overlap!")
-            continue
+            if not F:
+                print(f"Weird: no rot ({i}&{j}) but overlap!")
+                continue
 
-        explore.add(j)
-        scanners[j].set_rotation(F)
-        scanners[j].set_location(transform)
-        print(f"Scanner {j} sits at {scanners[j].location} (from {i})")
+            explore.add(j)
+            scanners[j].set_rotation(F)
+            scanners[j].set_location(transform)
+            print(f"Scanner {j} sits at {scanners[j].location} (from {i})")
 
-allbeacons = set()
-for x in scanners:
-    if not x.location:
-        print("still no location for ", x.name)
-    for b in x.beacons:
-        allbeacons.add(b.pos)
-print(len(allbeacons))
+    allbeacons = set()
+    for x in scanners:
+        if not x.location:
+            print("still no location for ", x.name)
+        for b in x.beacons:
+            allbeacons.add(b.pos)
+    print(len(allbeacons))
 
-def taxi_distance(a, b):
-    return sum([abs(c1 - c2) for c1, c2 in zip(a, b)])
-from itertools import combinations
-m = max([taxi_distance(p1.location, p2.location) for p1, p2 in combinations(scanners, 2)])
-print(f"Max distance between 2 scanners: {m}")
+    def taxi_distance(a, b):
+        return sum([abs(c1 - c2) for c1, c2 in zip(a, b)])
+    from itertools import combinations
+    m = max([taxi_distance(p1.location, p2.location) for p1, p2 in combinations(scanners, 2)])
+    print(f"Max distance between 2 scanners: {m}")
